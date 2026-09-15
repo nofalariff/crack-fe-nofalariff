@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils"
  * Dilakukan di sisi klien karena komponen ikon tidak dapat diserialkan saat
  * dikirim dari Server Component sebagai props.
  */
-const ICONS: Record<NavIconKey, LucideIcon> = {
+const ICONS: Partial<Record<NavIconKey, LucideIcon>> = {
   dashboard: LayoutDashboard,
   kirim: PackagePlus,
   kiriman: Boxes,
@@ -40,7 +40,7 @@ export function DashboardSidebarNav({ items }: { items: NavItem[] }) {
   return (
     <nav aria-label="Navigasi dashboard" className="flex flex-col gap-1">
       {items.map((item) => {
-        const Icon = ICONS[item.icon]
+        const Icon = ICONS[item.icon] ?? LayoutDashboard
         const active = isActive(pathname, item.href)
 
         if (item.disabled) {
@@ -89,7 +89,7 @@ export function DashboardBottomNav({ items }: { items: NavItem[] }) {
     >
       <ul className="mx-auto flex max-w-lg items-stretch">
         {items.map((item) => {
-          const Icon = ICONS[item.icon]
+          const Icon = ICONS[item.icon] ?? LayoutDashboard
           const active = isActive(pathname, item.href)
 
           return (

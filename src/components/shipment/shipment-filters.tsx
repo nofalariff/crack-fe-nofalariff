@@ -73,6 +73,7 @@ export function ShipmentFilters() {
         <div className="flex-1 space-y-1.5">
           <Label htmlFor="filter-search">Cari</Label>
           <Input
+            key={search}
             id="filter-search"
             name="search"
             defaultValue={search}

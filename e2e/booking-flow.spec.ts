@@ -94,6 +94,24 @@ test.describe("Guard rute", () => {
     await expect(page).toHaveURL(/\/masuk\?next=%2Fdashboard/)
   })
 
+  test("isian form tidak hilang saat submit gagal", async ({ page }) => {
+    // React mengosongkan input tak-terkontrol setelah form action selesai.
+    // Tanpa penanganan khusus, satu kesalahan validasi memaksa pengguna
+    // mengetik ulang seluruh form — termasuk form registrasi.
+    await page.goto("/daftar")
+    await page.getByLabel("Nama lengkap").fill("Calon Pelanggan")
+    await page.getByLabel("Email").fill("budi@example.com") // sudah terdaftar
+    await page.getByLabel("Nomor HP").fill("081234567890")
+    await page.getByLabel("Password", { exact: true }).fill("password123")
+    await page.getByLabel("Ulangi password").fill("password123")
+    await page.getByRole("button", { name: "Daftar" }).click()
+
+    await expect(page.getByText(/sudah terdaftar/i)).toBeVisible()
+
+    await expect(page.getByLabel("Nama lengkap")).toHaveValue("Calon Pelanggan")
+    await expect(page.getByLabel("Nomor HP")).toHaveValue("081234567890")
+  })
+
   test("kredensial salah memberi pesan generik", async ({ page }) => {
     await page.goto("/masuk")
     await page.getByLabel("Email").fill("budi@example.com")
@@ -274,7 +292,7 @@ test.describe("Admin", () => {
     await expect(
       page.getByRole("heading", { name: /Halo, Sari/ })
     ).toBeVisible()
-    await expect(page.getByText("Panel admin sedang dibangun")).toBeVisible()
+    await expect(page.getByText("Perlu ditindaklanjuti")).toBeVisible()
   })
 
   test("admin yang membuka area customer dipantulkan ke area operasional", async ({

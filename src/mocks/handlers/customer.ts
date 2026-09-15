@@ -2,12 +2,10 @@ import { http, HttpResponse } from "msw"
 
 import { SHIPMENT_LIMITS } from "@/lib/constants/service-type"
 import type {
-  ApiErrorCode,
   CreateShipmentRequest,
   DashboardSummary,
   Invoice,
   LoginRequest,
-  PaginationMeta,
   RegisterAgentRequest,
   RegisterCustomerRequest,
   ServiceType,
@@ -26,7 +24,18 @@ import {
   toPublicUser,
   type MockShipment,
   type MockUser,
-} from "./db"
+} from "../db"
+
+import {
+  API,
+  fail,
+  isBookingAllowed,
+  ok,
+  shipmentsOf,
+  tokensFor,
+  unauthorized,
+  userFromRequest,
+} from "./shared"
 
 /**
  * Handler MSW yang meniru kontrak API PRD §10 — termasuk envelope, paginasi,
@@ -34,109 +43,15 @@ import {
  * untuk kegagalan benar-benar teruji, bukan hanya jalur bahagia.
  */
 
-const API = "*/api/v1"
-
-// === Envelope (PRD §10.1) ===
-
-function ok<T>(data: T, meta?: PaginationMeta, status = 200) {
-  return HttpResponse.json(
-    { success: true, data, ...(meta ? { meta } : {}) },
-    { status }
-  )
-}
-
-function fail(
-  code: ApiErrorCode,
-  message: string,
-  status: number,
-  details?: Array<{ field: string; message: string }>
-) {
-  return HttpResponse.json(
-    {
-      success: false,
-      error: { code, message, ...(details ? { details } : {}) },
-    },
-    { status }
-  )
-}
-
-// === Token tiruan ===
-
-function base64url(value: object): string {
-  return Buffer.from(JSON.stringify(value))
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "")
-}
-
-const ACCESS_TTL_SECONDS = 15 * 60
-
-/** JWT tiruan tanpa tanda tangan — cukup untuk pemeriksaan optimistis di proxy. */
-function issueAccessToken(user: MockUser): string {
-  const header = base64url({ alg: "none", typ: "JWT" })
-  const payload = base64url({
-    sub: user.id,
-    email: user.email,
-    role: user.role,
-    exp: Math.floor(Date.now() / 1000) + ACCESS_TTL_SECONDS,
-  })
-  return `${header}.${payload}.mock`
-}
-
-function issueRefreshToken(user: MockUser): string {
-  return `refresh.${user.id}.${Math.random().toString(36).slice(2, 10)}`
-}
-
-function tokensFor(user: MockUser) {
-  return {
-    accessToken: issueAccessToken(user),
-    refreshToken: issueRefreshToken(user),
-    expiresIn: ACCESS_TTL_SECONDS,
-  }
-}
-
-function userFromRequest(request: Request): MockUser | null {
-  const header = request.headers.get("Authorization")
-  if (!header?.startsWith("Bearer ")) return null
-
-  const [, payload] = header.slice(7).split(".")
-  if (!payload) return null
-
-  try {
-    const decoded = JSON.parse(
-      Buffer.from(
-        payload.replace(/-/g, "+").replace(/_/g, "/"),
-        "base64"
-      ).toString()
-    ) as { sub?: string; exp?: number }
-
-    if (!decoded.sub) return null
-    if (decoded.exp && decoded.exp * 1000 < Date.now()) return null
-
-    return findUserById(decoded.sub) ?? null
-  } catch {
-    return null
-  }
-}
-
-/** Agent hanya boleh membuat booking setelah disetujui (PRD FR-AGENT-02). */
-function isBookingAllowed(user: MockUser): boolean {
-  if (user.role !== "AGENT") return true
-  return user.agentProfile?.approvalStatus === "APPROVED"
-}
-
-function unauthorized() {
-  return fail("UNAUTHORIZED", "Sesi Anda sudah berakhir.", 401)
-}
-
-function shipmentsOf(user: MockUser): MockShipment[] {
-  return db.shipments.filter((shipment) => shipment.userId === user.id)
-}
+/** PNG 1×1 piksel — cukup untuk membuktikan jalur unduhnya bekerja. */
+const PLACEHOLDER_PROOF = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+  "base64"
+)
 
 // === Handler ===
 
-export const handlers = [
+export const customerHandlers = [
   // --- Auth ---
 
   http.post(`${API}/auth/register`, async ({ request }) => {
@@ -475,6 +390,7 @@ export const handlers = [
     const shipment: MockShipment = {
       id: `shipment-${Math.random().toString(36).slice(2, 10)}`,
       userId: user.id,
+      previousStatus: null,
       trackingNumber: generateTrackingNumber(),
       serviceType: body.serviceType,
       destinationCode: route.destinationCode,
@@ -758,5 +674,34 @@ export const handlers = [
     }
 
     return ok(summary)
+  }),
+
+  // --- Berkas bukti pembayaran ---
+
+  /**
+   * Bukti transfer hanya boleh diambil pemiliknya atau admin (NFR-SEC-07).
+   * Mock mengembalikan gambar placeholder; yang diuji di sini adalah
+   * penjagaan aksesnya, bukan isi berkasnya.
+   */
+  http.get(`${API}/files/:id`, ({ request, params }) => {
+    const user = userFromRequest(request)
+    if (!user) return unauthorized()
+
+    const attachmentId = String(params.id)
+    const owner = db.shipments.find((shipment) =>
+      shipment.payments.some((payment) => payment.attachmentId === attachmentId)
+    )
+
+    if (!owner) {
+      return fail("NOT_FOUND", "Berkas tidak ditemukan.", 404)
+    }
+
+    if (user.role !== "ADMIN" && owner.userId !== user.id) {
+      return fail("FORBIDDEN", "Anda tidak memiliki akses ke berkas ini.", 403)
+    }
+
+    return HttpResponse.arrayBuffer(PLACEHOLDER_PROOF.buffer as ArrayBuffer, {
+      headers: { "Content-Type": "image/png" },
+    })
   }),
 ]

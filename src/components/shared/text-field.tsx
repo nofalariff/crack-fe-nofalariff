@@ -1,6 +1,6 @@
 "use client"
 
-import { useId } from "react"
+import { useId, useState } from "react"
 
 import {
   Field,
@@ -43,12 +43,36 @@ export function TextField({
   const describedBy =
     [descriptionId, errorId].filter(Boolean).join(" ") || undefined
 
+  /**
+   * Field dikendalikan dari state internal, bukan dibiarkan tak-terkontrol.
+   *
+   * Alasannya konkret: React mengosongkan seluruh input tak-terkontrol setelah
+   * sebuah form action selesai. Pada submit yang gagal validasi, itu berarti
+   * pengguna kehilangan semua yang sudah diketik dan harus mengisi ulang dari
+   * awal — pada form registrasi, seluruh isinya. Nilai yang datang dari state
+   * React kebal terhadap reset itu.
+   *
+   * Pemanggil tetap boleh mengendalikannya sendiri dengan mengirim `value`.
+   */
+  const { value: controlledValue, defaultValue, onChange, ...rest } = props
+  const isControlled = controlledValue !== undefined
+  const [internalValue, setInternalValue] = useState(defaultValue ?? "")
+
+  function handleChange(
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) {
+    if (!isControlled) setInternalValue(event.target.value)
+    onChange?.(event as React.ChangeEvent<HTMLInputElement>)
+  }
+
   const shared = {
     id,
     name,
     "aria-invalid": error ? true : undefined,
     "aria-describedby": describedBy,
     required,
+    value: isControlled ? controlledValue : internalValue,
+    onChange: handleChange,
   }
 
   return (
@@ -68,11 +92,11 @@ export function TextField({
 
       {multiline ? (
         <Textarea
+          {...(rest as React.ComponentProps<typeof Textarea>)}
           {...shared}
-          {...(props as React.ComponentProps<typeof Textarea>)}
         />
       ) : (
-        <Input type={type} {...shared} {...props} />
+        <Input type={type} {...rest} {...shared} />
       )}
 
       {description && (

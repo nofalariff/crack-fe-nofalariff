@@ -23,7 +23,17 @@ export default defineConfig({
   },
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
-    { name: "mobile", use: { ...devices["Pixel 7"] } },
+    {
+      name: "mobile",
+      use: { ...devices["Pixel 7"] },
+      /*
+       * Pengujian admin yang mengubah data hanya dijalankan sekali: mock
+       * berbagi satu state per proses server, sehingga menjalankannya di dua
+       * viewport membuat yang kedua bekerja pada data yang sudah berubah.
+       * Tampilan panel admin tetap diuji di mobile lewat `admin-view.spec.ts`.
+       */
+      testIgnore: /admin-flow\.spec\.ts/,
+    },
   ],
   webServer: {
     command: "bun run dev",

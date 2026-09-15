@@ -351,3 +351,211 @@ export type DashboardSummary = {
   deliveredCount: number
   recentShipments: ShipmentSummary[]
 }
+
+// ===========================================================================
+// Admin (PRD §10 — kelompok /admin). Seluruhnya menuntut role ADMIN.
+// ===========================================================================
+
+/** Ringkasan kiriman untuk admin: ikut membawa identitas pemesannya. */
+export type AdminShipmentSummary = ShipmentSummary & {
+  customerId: string
+  customerName: string
+  customerEmail: string
+  customerRole: UserRole
+  senderPhone: string
+  recipientPhone: string
+  totalColli: number
+  /** Hari sejak perubahan status terakhir — penanda kiriman mandek. */
+  daysSinceUpdate: number
+}
+
+export type AdminShipmentDetail = Shipment & {
+  customerId: string
+  customerName: string
+  customerEmail: string
+  customerRole: UserRole
+  previousStatus: ShipmentStatus | null
+}
+
+export type AdminShipmentListParams = ShipmentListParams & {
+  destinationCode?: string
+  paymentStatus?: ShipmentPaymentStatus
+}
+
+export type UpdateStatusRequest = {
+  status: ShipmentStatus
+  location?: string
+  notes?: string
+  /** Wajib saat status DELIVERED. */
+  deliveredTo?: string
+  /** Wajib saat status ON_HOLD atau CANCELLED. */
+  reason?: string
+}
+
+export type BulkStatusRequest = {
+  shipmentIds: string[]
+  status: ShipmentStatus
+  notes?: string
+}
+
+/** Aksi massal melaporkan yang gagal, bukan menggagalkan seluruh operasi. */
+export type BulkStatusResult = {
+  updatedCount: number
+  skipped: Array<{
+    trackingNumber: string
+    reason: string
+  }>
+}
+
+export type WeightCorrectionRequest = {
+  actualWeight: number
+  notes?: string
+}
+
+/** Hasil koreksi berat, memuat perbandingan tagihan lama dan baru. */
+export type WeightCorrectionResult = {
+  shipment: AdminShipmentDetail
+  previousChargeableWeight: number
+  previousTotalAmount: number
+  difference: number
+}
+
+export type WalkInShipmentRequest = CreateShipmentRequest & {
+  /** Kosong berarti kiriman walk-in atas nama admin. */
+  onBehalfOfUserId?: string
+}
+
+// === Antrean pembayaran ===
+
+export type PaymentQueueItem = {
+  paymentId: string
+  shipmentId: string
+  trackingNumber: string
+  customerName: string
+  customerEmail: string
+  totalAmount: number
+  claimedAmount: number
+  /** claimedAmount - totalAmount; negatif berarti kurang bayar. */
+  difference: number
+  senderAccountName: string
+  transferDate: string
+  attachmentId: string
+  attachmentName: string
+  status: PaymentRecordStatus
+  submittedAt: string
+}
+
+export type RejectPaymentRequest = {
+  reason: string
+}
+
+// === Agen & user ===
+
+export type AgentListItem = {
+  userId: string
+  fullName: string
+  email: string
+  phone: string
+  companyName: string
+  companyAddress: string
+  picName: string
+  picPhone: string
+  npwp: string | null
+  approvalStatus: ApprovalStatus
+  rejectionReason: string | null
+  submittedAt: string
+  reviewedAt: string | null
+}
+
+export type RejectAgentRequest = {
+  reason: string
+}
+
+export type AdminUser = {
+  id: string
+  fullName: string
+  email: string
+  phone: string
+  role: UserRole
+  status: UserStatus
+  createdAt: string
+  companyName: string | null
+  approvalStatus: ApprovalStatus | null
+  shipmentCount: number
+}
+
+export type AdminUserDetail = AdminUser & {
+  agentProfile: AgentProfile | null
+  statusCounts: Partial<Record<ShipmentStatus, number>>
+  totalSpent: number
+  recentShipments: ShipmentSummary[]
+}
+
+export type UpdateUserStatusRequest = {
+  status: UserStatus
+}
+
+// === Master data rute & tarif ===
+
+export type RouteRequest = {
+  serviceType: ServiceType
+  destinationCode: string
+  destinationName: string
+  destinationRegion: string
+  estimatedDays: number
+  isActive?: boolean
+}
+
+export type RateRequest = {
+  pricePerKg: number
+  minChargeableWeight: number
+  baseFee: number
+}
+
+/** Rute untuk admin: ikut membawa jumlah kiriman yang memakainya. */
+export type AdminRoute = Route & {
+  activeShipmentCount: number
+}
+
+// === Audit log ===
+
+export type AuditAction =
+  | "SHIPMENT_STATUS_CHANGED"
+  | "SHIPMENT_WEIGHT_CORRECTED"
+  | "SHIPMENT_CREATED_BY_ADMIN"
+  | "PAYMENT_VERIFIED"
+  | "PAYMENT_REJECTED"
+  | "AGENT_APPROVED"
+  | "AGENT_REJECTED"
+  | "USER_STATUS_CHANGED"
+  | "ROUTE_CREATED"
+  | "ROUTE_UPDATED"
+  | "RATE_UPDATED"
+
+export type AuditLogEntry = {
+  id: string
+  action: AuditAction
+  actorName: string
+  actorEmail: string
+  entityType: string
+  entityId: string
+  /** Label yang terbaca manusia, misalnya nomor resi atau nama perusahaan. */
+  entityLabel: string
+  before: Record<string, string | number | null> | null
+  after: Record<string, string | number | null> | null
+  createdAt: string
+}
+
+// === Dashboard admin ===
+
+export type AdminDashboardSummary = {
+  pendingPaymentVerification: number
+  pendingAgentApproval: number
+  /** Kiriman aktif yang statusnya tidak berubah lebih dari 3 hari. */
+  stalledShipments: number
+  totalShipments: number
+  activeShipments: number
+  statusCounts: Partial<Record<ShipmentStatus, number>>
+  /** Kiriman paling lama tidak bergerak — antrean tindakan. */
+  needsAttention: AdminShipmentSummary[]
+}

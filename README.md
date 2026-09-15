@@ -8,16 +8,24 @@ keputusan di repo ini mengacu ke sana.
 
 ## Cakupan fase ini
 
-Grup route `(public)`, `(auth)`, dan `(dashboard)` — dari landing page sampai
-dashboard customer. **Isi panel admin dan halaman cetak label/manifest belum
-dikerjakan** dan direncanakan sebagai fase terpisah; `(admin)` saat ini hanya
-berisi kerangka beserta penjaga aksesnya.
+Seluruh grup route sudah terisi: `(public)`, `(auth)`, `(dashboard)`, dan
+`(admin)`. **Halaman cetak label & manifest (FR-ADM-02/03) belum dikerjakan** dan
+direncanakan sebagai fase terpisah.
 
-| Area      | Halaman                                                                                                                                                |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Publik    | Landing, Layanan, Cek Ongkir, Syarat & Ketentuan                                                                                                       |
-| Auth      | Masuk, Daftar (B2C), Daftar Agen (B2B)                                                                                                                 |
-| Dashboard | Ringkasan, Kirim Barang, Kiriman Saya, Detail & Linimasa Status, Invoice, Unggah Bukti Bayar, Ubah Kiriman, Buku Alamat, Profil, Status Pengajuan Agen |
+| Area      | Halaman                                                                                                                                                                                  |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Publik    | Landing, Layanan, Cek Ongkir, Syarat & Ketentuan                                                                                                                                         |
+| Auth      | Masuk, Daftar (B2C), Daftar Agen (B2B)                                                                                                                                                   |
+| Dashboard | Ringkasan, Kirim Barang, Kiriman Saya, Detail & Linimasa Status, Invoice, Unggah Bukti Bayar, Ubah Kiriman, Buku Alamat, Profil, Status Pengajuan Agen                                   |
+| Admin     | Dashboard Operasional, Kiriman (filter + aksi massal), Detail & Pemrosesan Kiriman, Buat Kiriman Walk-in, Verifikasi Pembayaran, Approval Agen, Kelola Pengguna, Rute & Tarif, Audit Log |
+
+### Alur operasional yang ditutup fase admin
+
+Sebelumnya kiriman mentok di _Menunggu Pembayaran_ karena tidak ada yang bisa
+memverifikasi bukti transfer. Sekarang lingkarannya utuh: admin memverifikasi
+pembayaran, menggerakkan status mengikuti state machine PRD §8.3 (satuan maupun
+massal), mengoreksi berat timbang beserta dampak tagihannya, menyetujui agen,
+mengelola akun, dan mengatur rute serta tarif — semuanya tercatat di audit log.
 
 ## Menjalankan
 
@@ -40,9 +48,11 @@ seluruh kode error domain.
 | Agen (menunggu persetujuan) | `agenbaru@example.com` | `password123` |
 | Admin / Operasional         | `admin@logisend.id`    | `password123` |
 
-Akun admin mendarat di `/admin`. Panel operasionalnya sendiri belum dibangun —
-halaman itu baru berisi kerangka, penjaga akses, dan daftar fitur yang menyusul
-pada fase berikutnya.
+Akun admin mendarat di `/admin`. Akun lain yang ikut di-seed untuk mengisi
+antrean operasional: `dewi@example.com`, `rahmat@example.com`,
+`kargo@example.com` (agen disetujui), `agenkedua@example.com` (agen menunggu
+approval), `agenditolak@example.com` (agen ditolak), dan `nonaktif@example.com`
+(akun ditangguhkan) — seluruhnya dengan password yang sama.
 
 Data mock bersifat **stateful selama proses server hidup**: booking yang dibuat
 benar-benar muncul di daftar kiriman, dan unggahan bukti benar-benar mengubah
@@ -59,6 +69,10 @@ status pembayaran. Restart `bun dev` mengembalikannya ke data awal.
 | `bun run format`    | Prettier                           |
 | `bun test`          | Unit test (Vitest)                 |
 | `bun run test:e2e`  | E2E (Playwright, desktop + mobile) |
+
+Pengujian admin yang mengubah data (`e2e/admin-flow.spec.ts`) hanya dijalankan di
+viewport desktop, karena mock berbagi satu state per proses server. Tampilan
+panel admin tetap diuji di mobile lewat `e2e/admin-view.spec.ts`.
 
 ## Environment
 
@@ -80,13 +94,15 @@ src/
 │   ├── (public)/      # landing, cek-ongkir, layanan, syarat-ketentuan
 │   ├── (auth)/        # masuk, daftar, daftar/agen
 │   ├── (dashboard)/   # dashboard, kirim, kiriman, penerima, profil
-│   └── (admin)/       # kerangka area operasional (isi menyusul)
+│   ├── (admin)/       # area operasional: kiriman, pembayaran, agen, rute, audit
+│   └── api/files/     # proxy terautentikasi untuk bukti pembayaran
 ├── components/
 │   ├── ui/            # shadcn/ui (dikelola generator)
 │   ├── layout/        # header, footer, sidebar, banner status agen
 │   ├── booking/       # wizard booking + ringkasan biaya
 │   ├── shipment/      # badge status, linimasa, filter, dialog
-│   └── shared/        # field form, empty state, tombol submit
+│   ├── admin/         # tabel & dialog operasional, kartu statistik
+│   └── shared/        # field form, empty state, tombol submit, paginasi
 ├── lib/
 │   ├── api/           # klien HTTP + pemetaan error domain
 │   ├── auth/          # sesi cookie, Server Action, akses sesi
@@ -94,7 +110,7 @@ src/
 │   ├── validations/   # skema Zod (cermin aturan backend)
 │   ├── constants/     # status, layanan, navigasi, barang terlarang
 │   └── format.ts      # rupiah, tanggal WIB, berat, nomor HP
-├── mocks/             # MSW: data + handler kontrak API
+├── mocks/             # MSW: data, handler customer & admin, audit log
 ├── types/api.ts       # tipe kontrak PRD §10
 ├── instrumentation.ts # menyalakan MSW di runtime server
 └── proxy.ts           # guard rute (dulu bernama middleware.ts)
@@ -118,6 +134,17 @@ src/
   Jangan menulis label status langsung di komponen.
 - **Estimasi vs final**: seluruh angka ongkir di UI diberi label estimasi, karena
   tagihan final ditentukan setelah penimbangan ulang di gudang.
+- **State machine status ada di satu tempat**
+  ([`src/lib/constants/shipment-status.ts`](src/lib/constants/shipment-status.ts))
+  dan dipakai dua arah: UI hanya menawarkan transisi yang sah, backend menolak
+  yang tidak sah. Menyembunyikan pilihan di UI bukan penegakan aturan.
+- **Aksi massal melaporkan yang gagal**, bukan menggagalkan seluruh operasi —
+  kiriman yang transisinya tidak sah dilewati beserta alasannya.
+- **Perubahan tarif tidak menyentuh kiriman yang sudah terbit**, karena tiap
+  kiriman menyimpan snapshot tarifnya sendiri.
+- **Input form dikendalikan dari state React**, bukan dibiarkan tak-terkontrol:
+  React mengosongkan input tak-terkontrol setelah sebuah form action selesai,
+  yang membuat isian pengguna hilang setiap kali validasi gagal.
 
 ## Beralih ke backend asli
 
