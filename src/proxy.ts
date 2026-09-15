@@ -24,13 +24,24 @@ const PROTECTED_PREFIXES = [
 
 const AUTH_ROUTES = ["/masuk", "/daftar"]
 
+/** Area operasional — hanya untuk role ADMIN. */
+const ADMIN_PREFIX = "/admin"
+
+/** Tujuan setelah login, berbeda antara staf internal dan customer. */
+function homeFor(role: string | undefined): string {
+  return role === "ADMIN" ? ADMIN_PREFIX : "/dashboard"
+}
+
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const claims = readClaims(request.cookies.get(ACCESS_TOKEN_COOKIE)?.value)
 
-  const isProtected = PROTECTED_PREFIXES.some(
+  const isCustomerArea = PROTECTED_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
   )
+  const isAdminArea =
+    pathname === ADMIN_PREFIX || pathname.startsWith(`${ADMIN_PREFIX}/`)
+  const isProtected = isCustomerArea || isAdminArea
   const isAuthRoute = AUTH_ROUTES.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`)
   )
@@ -44,16 +55,24 @@ export function proxy(request: NextRequest) {
   }
 
   // Admin punya panel sendiri — jauhkan dari area customer.
-  if (isProtected && claims?.role === "ADMIN") {
+  if (isCustomerArea && claims?.role === "ADMIN") {
     const url = request.nextUrl.clone()
-    url.pathname = "/admin"
+    url.pathname = ADMIN_PREFIX
+    url.search = ""
+    return NextResponse.redirect(url)
+  }
+
+  // Sebaliknya, customer dan agen tidak punya urusan di area operasional.
+  if (isAdminArea && claims && claims.role !== "ADMIN") {
+    const url = request.nextUrl.clone()
+    url.pathname = "/dashboard"
     url.search = ""
     return NextResponse.redirect(url)
   }
 
   if (isAuthRoute && claims) {
     const url = request.nextUrl.clone()
-    url.pathname = "/dashboard"
+    url.pathname = homeFor(claims.role)
     url.search = ""
     return NextResponse.redirect(url)
   }

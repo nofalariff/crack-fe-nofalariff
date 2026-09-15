@@ -18,15 +18,22 @@ const PENDING_AGENT = {
   password: "password123",
 }
 
+const ADMIN = {
+  email: "admin@logisend.id",
+  password: "password123",
+}
+
 async function login(
   page: import("@playwright/test").Page,
-  user: { email: string; password: string }
+  user: { email: string; password: string },
+  /** Tujuan setelah login — admin mendarat di area operasional. */
+  landing = "**/dashboard"
 ) {
   await page.goto("/masuk")
   await page.getByLabel("Email").fill(user.email)
   await page.getByLabel("Password").fill(user.password)
   await page.getByRole("button", { name: "Masuk" }).click()
-  await page.waitForURL("**/dashboard")
+  await page.waitForURL(landing)
 }
 
 test.describe("Halaman publik", () => {
@@ -254,5 +261,42 @@ test.describe("Agen yang belum disetujui", () => {
     await expect(
       page.getByText("Sedang ditinjau", { exact: true })
     ).toBeVisible()
+  })
+})
+
+test.describe("Admin", () => {
+  test("login admin mendarat di area operasional, bukan dashboard customer", async ({
+    page,
+  }) => {
+    await login(page, ADMIN, "**/admin")
+
+    await expect(page).toHaveURL(/\/admin$/)
+    await expect(
+      page.getByRole("heading", { name: /Halo, Sari/ })
+    ).toBeVisible()
+    await expect(page.getByText("Panel admin sedang dibangun")).toBeVisible()
+  })
+
+  test("admin yang membuka area customer dipantulkan ke area operasional", async ({
+    page,
+  }) => {
+    await login(page, ADMIN, "**/admin")
+
+    for (const path of ["/dashboard", "/kirim", "/kiriman", "/penerima"]) {
+      await page.goto(path)
+      await expect(page).toHaveURL(/\/admin$/)
+    }
+  })
+
+  test("customer tidak dapat masuk ke area operasional", async ({ page }) => {
+    await login(page, EXISTING_CUSTOMER)
+
+    await page.goto("/admin")
+    await expect(page).toHaveURL(/\/dashboard$/)
+  })
+
+  test("area operasional tertutup tanpa sesi", async ({ page }) => {
+    await page.goto("/admin")
+    await expect(page).toHaveURL(/\/masuk\?next=%2Fadmin/)
   })
 })

@@ -15,9 +15,15 @@ import type { CurrentUser } from "@/types/api"
 
 export function UserMenu({ user }: { user: CurrentUser }) {
   const roleLabel =
-    user.role === "AGENT"
-      ? (user.agentProfile?.companyName ?? "Agen")
-      : "Perorangan"
+    user.role === "ADMIN"
+      ? "Admin Operasional"
+      : user.role === "AGENT"
+        ? (user.agentProfile?.companyName ?? "Agen")
+        : "Perorangan"
+
+  // Halaman profil berada di area customer; admin akan dipantulkan proxy ke
+  // area operasional, jadi tautannya tidak ditampilkan untuk mereka.
+  const showProfileLink = user.role !== "ADMIN"
 
   return (
     <DropdownMenu>
@@ -46,14 +52,18 @@ export function UserMenu({ user }: { user: CurrentUser }) {
 
         <DropdownMenuSeparator />
 
-        <DropdownMenuItem asChild>
-          <Link href="/profil">
-            <UserRound aria-hidden />
-            Profil saya
-          </Link>
-        </DropdownMenuItem>
+        {showProfileLink && (
+          <>
+            <DropdownMenuItem asChild>
+              <Link href="/profil">
+                <UserRound aria-hidden />
+                Profil saya
+              </Link>
+            </DropdownMenuItem>
 
-        <DropdownMenuSeparator />
+            <DropdownMenuSeparator />
+          </>
+        )}
 
         <DropdownMenuItem asChild variant="destructive">
           <form action={logoutAction}>

@@ -11,7 +11,7 @@ import {
   registerCustomerSchema,
   updateProfileSchema,
 } from "@/lib/validations/auth"
-import type { CurrentUser, LoginResponse } from "@/types/api"
+import type { CurrentUser, LoginResponse, UserRole } from "@/types/api"
 
 import { createSession, destroySession } from "./session"
 
@@ -49,6 +49,8 @@ export async function loginAction(
     return { fieldErrors: flattenZod(parsed.error.issues) }
   }
 
+  let role: UserRole = "CUSTOMER"
+
   try {
     const result = await apiFetch<LoginResponse>("/auth/login", {
       method: "POST",
@@ -57,11 +59,16 @@ export async function loginAction(
     })
 
     await createSession(result)
+    role = result.user.role
   } catch (error) {
     return toActionState(error)
   }
 
-  const next = String(formData.get("next") ?? "") || "/dashboard"
+  // Staf internal mendarat di area operasional, customer dan agen di dashboard.
+  // Tujuan eksplisit dari parameter `next` tetap diutamakan.
+  const home = role === "ADMIN" ? "/admin" : "/dashboard"
+  const next = String(formData.get("next") ?? "") || home
+
   // redirect() melempar secara internal — harus di luar blok try
   redirect(next)
 }

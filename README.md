@@ -9,8 +9,9 @@ keputusan di repo ini mengacu ke sana.
 ## Cakupan fase ini
 
 Grup route `(public)`, `(auth)`, dan `(dashboard)` — dari landing page sampai
-dashboard customer. **Panel admin dan halaman cetak label/manifest belum
-dikerjakan** dan direncanakan sebagai fase terpisah.
+dashboard customer. **Isi panel admin dan halaman cetak label/manifest belum
+dikerjakan** dan direncanakan sebagai fase terpisah; `(admin)` saat ini hanya
+berisi kerangka beserta penjaga aksesnya.
 
 | Area      | Halaman                                                                                                                                                |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -37,6 +38,11 @@ seluruh kode error domain.
 | Customer B2C                | `budi@example.com`     | `password123` |
 | Agen (disetujui)            | `agen@example.com`     | `password123` |
 | Agen (menunggu persetujuan) | `agenbaru@example.com` | `password123` |
+| Admin / Operasional         | `admin@logisend.id`    | `password123` |
+
+Akun admin mendarat di `/admin`. Panel operasionalnya sendiri belum dibangun —
+halaman itu baru berisi kerangka, penjaga akses, dan daftar fitur yang menyusul
+pada fase berikutnya.
 
 Data mock bersifat **stateful selama proses server hidup**: booking yang dibuat
 benar-benar muncul di daftar kiriman, dan unggahan bukti benar-benar mengubah
@@ -73,7 +79,8 @@ src/
 ├── app/
 │   ├── (public)/      # landing, cek-ongkir, layanan, syarat-ketentuan
 │   ├── (auth)/        # masuk, daftar, daftar/agen
-│   └── (dashboard)/   # dashboard, kirim, kiriman, penerima, profil
+│   ├── (dashboard)/   # dashboard, kirim, kiriman, penerima, profil
+│   └── (admin)/       # kerangka area operasional (isi menyusul)
 ├── components/
 │   ├── ui/            # shadcn/ui (dikelola generator)
 │   ├── layout/        # header, footer, sidebar, banner status agen

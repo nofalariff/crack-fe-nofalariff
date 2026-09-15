@@ -194,6 +194,19 @@ const USERS: MockUser[] = [
       reviewedAt: null,
     },
   },
+  {
+    // Akun admin dibuat lewat seed, bukan registrasi publik (PRD §4.2).
+    // Tidak punya agentProfile karena bukan mitra B2B.
+    id: "user-admin",
+    email: "admin@logisend.id",
+    password: "password123",
+    fullName: "Sari Operasional",
+    phone: "+628555000111",
+    role: "ADMIN",
+    status: "ACTIVE",
+    createdAt: daysAgo(90),
+    agentProfile: null,
+  },
 ]
 
 // === Perhitungan tarif (PRD §8.2) ===
