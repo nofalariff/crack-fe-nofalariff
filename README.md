@@ -157,3 +157,23 @@ src/
 
 Tidak ada kode aplikasi yang perlu diubah untuk peralihan ini; `src/mocks/`
 dipertahankan untuk kebutuhan pengujian.
+
+## Deploy ke Vercel
+
+Panduan lengkap (Supabase → Railway → Vercel) ada di `DEPLOYMENT.md` pada
+folder induk proyek. Ringkasnya:
+
+- **Backend harus sudah online sebelum build.** Halaman `/`, `/cek-ongkir`, dan
+  `/layanan` mengambil daftar rute saat build (ISR, `revalidate: 300`), jadi
+  `next build` gagal bila `API_URL` tidak bisa dijangkau.
+- Environment variable (Production **dan** Preview):
+
+  | Variabel | Nilai |
+  | --- | --- |
+  | `API_URL` | `https://<domain-railway>/api/v1` |
+  | `NEXT_PUBLIC_APP_URL` | `https://<domain-vercel>` |
+  | `NEXT_PUBLIC_APP_NAME` | `LogiSend` |
+  | `NEXT_PUBLIC_API_MOCKING` | `disabled` — wajib; bila `enabled`, akun mock berkata sandi publik aktif |
+
+- Variabel `NEXT_PUBLIC_*` ditanam saat build — mengubahnya butuh redeploy.
+- Header keamanan dipasang di [`next.config.ts`](next.config.ts).

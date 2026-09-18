@@ -13,6 +13,7 @@ import {
 } from "@/lib/validations/auth"
 import type { CurrentUser, LoginResponse, UserRole } from "@/types/api"
 
+import { safeRedirectPath } from "./safe-redirect"
 import { createSession, destroySession } from "./session"
 
 /**
@@ -65,9 +66,9 @@ export async function loginAction(
   }
 
   // Staf internal mendarat di area operasional, customer dan agen di dashboard.
-  // Tujuan eksplisit dari parameter `next` tetap diutamakan.
+  // Tujuan eksplisit dari parameter `next` tetap diutamakan, asalkan internal.
   const home = role === "ADMIN" ? "/admin" : "/dashboard"
-  const next = String(formData.get("next") ?? "") || home
+  const next = safeRedirectPath(String(formData.get("next") ?? ""), home)
 
   // redirect() melempar secara internal — harus di luar blok try
   redirect(next)

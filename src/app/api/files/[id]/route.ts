@@ -3,6 +3,17 @@ import { NextResponse } from "next/server"
 import { env } from "@/env"
 import { getAccessToken } from "@/lib/auth/session"
 
+// Jenis berkas yang diterima backend saat unggah bukti (planbackend.md §8.3).
+// Apa pun selain ini tidak diteruskan dengan Content-Type aslinya, supaya
+// berkas tak terduga (mis. HTML/SVG) tidak pernah dirender di origin ini.
+const ALLOWED_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/pdf",
+])
+const ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/
+
 /**
  * Proxy berkas bukti pembayaran.
  *
@@ -18,6 +29,13 @@ export async function GET(
   context: { params: Promise<{ id: string }> }
 ) {
   const { id } = await context.params
+  if (!ID_PATTERN.test(id)) {
+    return NextResponse.json(
+      { error: "Berkas tidak ditemukan" },
+      { status: 404 }
+    )
+  }
+
   const token = await getAccessToken()
 
   if (!token) {
@@ -50,10 +68,21 @@ export async function GET(
   // kali browser membatalkan permintaan gambar (misalnya saat pindah halaman).
   const body = await upstream.arrayBuffer()
 
+  const upstreamType = (upstream.headers.get("Content-Type") ?? "")
+    .split(";")[0]
+    .trim()
+    .toLowerCase()
+  const contentType = ALLOWED_TYPES.has(upstreamType)
+    ? upstreamType
+    : "application/octet-stream"
+
   return new NextResponse(body, {
     headers: {
-      "Content-Type":
-        upstream.headers.get("Content-Type") ?? "application/octet-stream",
+      "Content-Type": contentType,
+      "Content-Disposition": ALLOWED_TYPES.has(upstreamType)
+        ? "inline"
+        : "attachment",
+      "X-Content-Type-Options": "nosniff",
       // Bukti pembayaran bersifat pribadi — jangan disimpan cache bersama.
       "Cache-Control": "private, max-age=60",
     },
