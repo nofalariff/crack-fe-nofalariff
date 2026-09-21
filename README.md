@@ -3,8 +3,20 @@
 Antarmuka web LogiSend: jasa pengiriman kargo udara dari Bandara Soekarno-Hatta
 (CGK) ke Sulawesi (port-to-port) dan seluruh Pulau Jawa (port-to-door).
 
+**[Lihat demo →](https://crack-fe-nofalariff.vercel.app)** · Frontend di Vercel,
+API NestJS di Railway, database dan penyimpanan berkas di Supabase.
+
 Spesifikasi produk lengkap ada di [`PRD.md`](../PRD.md) pada folder induk. Setiap
 keputusan di repo ini mengacu ke sana.
+
+## Tangkapan layar
+
+|                                                               |                                                              |
+| ------------------------------------------------------------- | ------------------------------------------------------------ |
+| ![Beranda](docs/screenshots/landing.png)                      | ![Cek ongkir](docs/screenshots/cek-ongkir.png)               |
+| **Beranda** — dua pilihan layanan dan tujuan yang dilayani    | **Cek Ongkir** — estimasi biaya tanpa perlu membuat akun     |
+| ![Dashboard customer](docs/screenshots/dashboard.png)         | ![Dashboard admin](docs/screenshots/admin-dashboard.png)     |
+| **Dashboard customer** — ringkasan status dan kiriman terbaru | **Dashboard operasional** — antrean kerja dan sebaran status |
 
 ## Cakupan fase ini
 
@@ -35,9 +47,13 @@ cp .env.example .env.local
 bun dev                       # http://localhost:3000
 ```
 
-Backend belum dibangun, jadi secara bawaan aplikasi berjalan di atas **mock MSW**
-yang meniru kontrak API PRD §10 — termasuk envelope response, paginasi, dan
-seluruh kode error domain.
+Secara bawaan (`NEXT_PUBLIC_API_MOCKING=enabled`) aplikasi berjalan di atas
+**mock MSW** yang meniru kontrak API PRD §10 — termasuk envelope response,
+paginasi, dan seluruh kode error domain. Mock ini tetap dipertahankan supaya
+pengembangan UI dan rangkaian E2E tidak bergantung pada backend yang menyala.
+
+Backend aslinya (`crack-be-nofalariff`) sudah berjalan di production; arahkan
+`API_URL` ke sana dan set `NEXT_PUBLIC_API_MOCKING=disabled` untuk memakainya.
 
 ### Akun uji (tersedia saat mock aktif)
 
@@ -148,7 +164,8 @@ src/
 
 ## Beralih ke backend asli
 
-1. Isi `API_URL` dengan alamat `logisend-api`.
+1. Isi `API_URL` dengan alamat API `crack-be-nofalariff`, lengkap dengan
+   akhiran `/api/v1`.
 2. Set `NEXT_PUBLIC_API_MOCKING=disabled`.
 3. Ganti [`src/types/api.ts`](src/types/api.ts) dengan hasil generate dari
    Swagger backend (`openapi-typescript`) — perbedaan bentuk response akan
@@ -168,11 +185,11 @@ folder induk proyek. Ringkasnya:
   `next build` gagal bila `API_URL` tidak bisa dijangkau.
 - Environment variable (Production **dan** Preview):
 
-  | Variabel | Nilai |
-  | --- | --- |
-  | `API_URL` | `https://<domain-railway>/api/v1` |
-  | `NEXT_PUBLIC_APP_URL` | `https://<domain-vercel>` |
-  | `NEXT_PUBLIC_APP_NAME` | `LogiSend` |
+  | Variabel                  | Nilai                                                                    |
+  | ------------------------- | ------------------------------------------------------------------------ |
+  | `API_URL`                 | `https://<domain-railway>/api/v1`                                        |
+  | `NEXT_PUBLIC_APP_URL`     | `https://<domain-vercel>`                                                |
+  | `NEXT_PUBLIC_APP_NAME`    | `LogiSend`                                                               |
   | `NEXT_PUBLIC_API_MOCKING` | `disabled` — wajib; bila `enabled`, akun mock berkata sandi publik aktif |
 
 - Variabel `NEXT_PUBLIC_*` ditanam saat build — mengubahnya butuh redeploy.
